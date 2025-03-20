@@ -1,0 +1,153 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+header {
+    background: #333;
+    color: #fff;
+    padding: 10px 0;
+}
+
+header h1 {
+    text-align: center;
+    color: white;
+}
+
+header nav ul {
+    list-style-type: none;
+    text-align: center;
+    color: #333;
+}
+
+header nav ul li {
+    display: inline;
+    margin: 0 10px;
+    color: black;
+}
+
+header nav ul li a {
+    color: #fff;
+    text-decoration: none;
+}
+
+footer {
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* styles.css */
+body {
+    font-family: Arial, sans-serif;
+}
+
+h1, h2 {
+    color: #333;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table, th, td {
+    border: 1px solid #ddd;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: white; /* YouTube background color */
+}
+
+header {
+    background-color: Black; 
+    color: #fff;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+header .title h1 {
+    margin: 0;
+}
+
+nav {
+    text-align: center; /* Center-align the navigation */
+}
+
+nav ul {
+    display: inline-block; /* Make the list items inline-block */
+    padding: 0;
+}
+
+nav ul li {
+    display: inline; /* Display list items inline */
+    margin-right: 20px;
+}
+
+nav ul li a {
+    color: #666; /* Gray color */
+    text-decoration: none;
+    background-color: #fc1111; /* red background */
+    padding: 10px 20px; /* Add padding */
+    border-radius: 5px; /* Add rounded corners */
+    transition: background-color 0.3s; /* Smooth transition */
+}
+
+nav ul li a:hover {
+    background-color: #ccc; /* Darker gray on hover */
+}
+
+main {
+    padding: 20px;
+}
+
+
+
+#home, #sentiment-analysis {
+    margin: 0 auto 20px; /* Center align and add bottom margin */
+    max-width: 300px; /* Limit width for centering */
+}
+
+form {
+    margin-top: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333; /* Black text */
+}
+
+input[type="file"] {
+    margin-bottom: 10px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #666; /* Gray color */
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #555; /* Darker gray on hover */
+}
+
+

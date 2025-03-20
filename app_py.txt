@@ -1,0 +1,398 @@
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+# Download necessary NLTK resources
+nltk.download('vader_lexicon')
+nltk.download('wordnet')
+nltk.download('stopwords')
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.config['ALLOWED_EXTENSIONS'] = {'csv'}
+
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/uploads', methods=['POST'])
+def upload_file():
+    if 'comments-file' not in request.files or 'videos-file' not in request.files:
+        return redirect(request.url)
+    comments_file = request.files['comments-file']
+    videos_file = request.files['videos-file']
+    if comments_file.filename == '' or videos_file.filename == '':
+        return redirect(request.url)
+    if comments_file and allowed_file(comments_file.filename) and videos_file and allowed_file(videos_file.filename):
+        comments_filename = secure_filename(comments_file.filename)
+        videos_filename = secure_filename(videos_file.filename)
+        comments_filepath = os.path.join(app.config['UPLOAD_FOLDER'], comments_filename)
+        videos_filepath = os.path.join(app.config['UPLOAD_FOLDER'], videos_filename)
+        comments_file.save(comments_filepath)
+        videos_file.save(videos_filepath)
+        try:
+            results = analyze_sentiment(comments_filepath, videos_filepath)
+            return render_template('index.html', results=results)
+        except Exception as e:
+            return f"An error occurred during sentiment analysis: {e}"
+    return redirect(request.url)
+
+def analyze_sentiment(comments_filepath, videos_filepath):
+    US_videos = pd.read_csv(videos_filepath, on_bad_lines='warn')
+    US_Comments = pd.read_csv(comments_filepath, on_bad_lines='warn')
+
+    # Debugging step: Check column names
+    print("US_Comments columns:", US_Comments.columns)
+
+    # Ensure the columns exist
+    if 'likes' not in US_Comments.columns or 'replies' not in US_Comments.columns or 'comment_text' not in US_Comments.columns:
+        raise ValueError("The comments file is missing required columns: 'likes', 'replies', 'comment_text'.")
+
+    US_Comments.dropna(inplace=True)
+    US_Comments = US_Comments.reset_index(drop=True)
+
+    # Handle potential non-numeric values in 'likes' and 'replies' columns
+    US_Comments['likes'] = pd.to_numeric(US_Comments['likes'], errors='coerce').fillna(0).astype(int)
+    US_Comments['replies'] = pd.to_numeric(US_Comments['replies'], errors='coerce').fillna(0).astype(int)
+
+    US_Comments['comment_text'] = US_Comments['comment_text'].str.replace("[^a-zA-Z#]", " ")
+
+    US_Comments['comment_text'] = US_Comments['comment_text'].apply(lambda x: ' '.join([w for w in x.split() if len(w) > 3]))
+    US_Comments['comment_text'] = US_Comments['comment_text'].apply(lambda x: x.lower())
+    tokenized_comments = US_Comments['comment_text'].apply(lambda x: x.split())
+
+    wnl = WordNetLemmatizer()
+    stop_words = set(stopwords.words('english'))
+    tokenized_comments = tokenized_comments.apply(lambda x: [wnl.lemmatize(i) for i in x if i not in stop_words])
+
+    for i in range(len(tokenized_comments)):
+        tokenized_comments[i] = ' '.join(tokenized_comments[i])
+
+    US_Comments['comment_text'] = tokenized_comments
+
+    sia = SentimentIntensityAnalyzer()
+    US_Comments['Sentiment Scores'] = US_Comments['comment_text'].apply(lambda x: sia.polarity_scores(x)['compound'])
+    US_Comments['Sentiment'] = US_Comments['Sentiment Scores'].apply(lambda s: 'Positive' if s > 0 else ('Neutral' if s == 0 else 'Negative'))
+
+    sentiment_distribution = US_Comments['Sentiment'].value_counts()
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=sentiment_distribution.index, y=sentiment_distribution.values)
+    plt.title('Distribution of Sentiment Categories')
+    plt.xlabel('Sentiment Category')
+    plt.ylabel('Number of Comments')
+    plt.savefig(os.path.join(app.config['UPLOAD_FOLDER'], 'sentiment_distribution.png'))
+    plt.close()
+
+    return list(zip(US_Comments['comment_text'], US_Comments['Sentiment']))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+
+
+# index.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Comment Sentiment Analysis - Sentiments</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        #sentiment-analysis {
+            display: flex;
+            align-items: center;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        #sentiment-analysis img {
+            width: 100%;
+            max-width: 300px;
+            margin-right: 20px;
+        }
+        #sentiment-analysis-form {
+            flex-grow: 1;
+        }
+        #upload-form {
+            display: flex;
+            flex-direction: column;
+        }
+        #upload-form label,
+        #upload-form input,
+        #upload-form button {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sentiment Analyzer</h1>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('index') }}">Sentiment Analysis</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="sentiment-analysis">
+            <img src="{{ url_for('static', filename='images/download.png') }}" alt="Image Description">
+            <div id="sentiment-analysis-form">
+                <h2>Sentiment Analysis</h2>
+                <form id="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                    <label for="csv-file">Upload Comments CSV file:</label>
+                    <input type="file" id="comments-file" name="comments-file" accept=".csv">
+                    <label for="csv-file">Upload Videos CSV file:</label>
+                    <input type="file" id="videos-file" name="videos-file" accept=".csv">
+                    <button type="submit">Analyze Sentiment</button>
+                </form>
+                {% if results %}
+                <h3>Sentiment Analysis Results</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Comment</th>
+                            <th>Sentiment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comment, sentiment in results %}
+                        <tr>
+                            <td>{{ comment }}</td>
+                            <td>{{ sentiment }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <h3>Sentiment Distribution</h3>
+                <img src="{{ url_for('static', filename='images/sentiment_distribution.png') }}" alt="Sentiment Distribution">
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 YouTube Comment Sentiment Analysis</p>
+    </footer>
+</body>
+</html>
+
+
+
+Final with small graph 
+
+
+app.py
+
+import os
+import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('vader_lexicon')
+nltk.download('wordnet')
+nltk.download('stopwords')
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads/'
+app.config['ALLOWED_EXTENSIONS'] = {'csv'}
+
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/uploads', methods=['POST'])
+def upload_file():
+    if 'comments-file' not in request.files or 'videos-file' not in request.files:
+        return redirect(request.url)
+    comments_file = request.files['comments-file']
+    videos_file = request.files['videos-file']
+    if comments_file.filename == '' or videos_file.filename == '':
+        return redirect(request.url)
+    if comments_file and allowed_file(comments_file.filename) and videos_file and allowed_file(videos_file.filename):
+        comments_filename = secure_filename(comments_file.filename)
+        videos_filename = secure_filename(videos_file.filename)
+        comments_filepath = os.path.join(app.config['UPLOAD_FOLDER'], comments_filename)
+        videos_filepath = os.path.join(app.config['UPLOAD_FOLDER'], videos_filename)
+        comments_file.save(comments_filepath)
+        videos_file.save(videos_filepath)
+        try:
+            results = analyze_sentiment(comments_filepath, videos_filepath)
+            return render_template('index.html', results=results)
+        except Exception as e:
+            return f"An error occurred during sentiment analysis: {e}"
+    return redirect(request.url)
+
+def analyze_sentiment(comments_filepath, videos_filepath):
+    US_videos = pd.read_csv(videos_filepath, on_bad_lines='warn')
+    US_Comments = pd.read_csv(comments_filepath, on_bad_lines='warn')
+
+    print("US_Comments columns:", US_Comments.columns)
+
+    if 'likes' not in US_Comments.columns or 'replies' not in US_Comments.columns or 'comment_text' not in US_Comments.columns:
+        raise ValueError("The comments file is missing required columns: 'likes', 'replies', 'comment_text'.")
+
+    US_Comments.dropna(inplace=True)
+    US_Comments = US_Comments.reset_index(drop=True)
+
+    US_Comments['likes'] = pd.to_numeric(US_Comments['likes'], errors='coerce').fillna(0).astype(int)
+    US_Comments['replies'] = pd.to_numeric(US_Comments['replies'], errors='coerce').fillna(0).astype(int)
+
+    US_Comments['comment_text'] = US_Comments['comment_text'].str.replace("[^a-zA-Z#]", " ")
+
+    US_Comments['comment_text'] = US_Comments['comment_text'].apply(lambda x: ' '.join([w for w in x.split() if len(w) > 3]))
+    US_Comments['comment_text'] = US_Comments['comment_text'].apply(lambda x: x.lower())
+    tokenized_comments = US_Comments['comment_text'].apply(lambda x: x.split())
+
+    wnl = WordNetLemmatizer()
+    stop_words = set(stopwords.words('english'))
+    tokenized_comments = tokenized_comments.apply(lambda x: [wnl.lemmatize(i) for i in x if i not in stop_words])
+
+    for i in range(len(tokenized_comments)):
+        tokenized_comments[i] = ' '.join(tokenized_comments[i])
+
+    US_Comments['comment_text'] = tokenized_comments
+
+    sia = SentimentIntensityAnalyzer()
+    US_Comments['Sentiment Scores'] = US_Comments['comment_text'].apply(lambda x: sia.polarity_scores(x)['compound'])
+    US_Comments['Sentiment'] = US_Comments['Sentiment Scores'].apply(lambda s: 'Positive' if s > 0 else ('Neutral' if s == 0 else 'Negative'))
+
+    sentiment_distribution = US_Comments['Sentiment'].value_counts()
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=sentiment_distribution.index, y=sentiment_distribution.values)
+    plt.title('Distribution of Sentiment Categories')
+    plt.xlabel('Sentiment Category')
+    plt.ylabel('Number of Comments')
+    sentiment_image_path = os.path.join(app.config['UPLOAD_FOLDER'], 'sentiment_distribution.png')
+    plt.savefig(sentiment_image_path)
+    plt.close()
+
+    return list(zip(US_Comments['comment_text'], US_Comments['Sentiment']))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+
+index.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Comment Sentiment Analysis - Sentiments</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        #sentiment-analysis {
+            display: flex;
+            align-items: center;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        #sentiment-analysis img {
+            width: 100%;
+            max-width: 300px;
+            margin-right: 20px;
+        }
+        #sentiment-analysis-form {
+            flex-grow: 1;
+        }
+        #upload-form {
+            display: flex;
+            flex-direction: column;
+        }
+        #upload-form label,
+        #upload-form input,
+        #upload-form button {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sentiment Analyzer</h1>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('index') }}">Sentiment Analysis</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="sentiment-analysis">
+            <img src="{{ url_for('static', filename='images/download.png') }}" alt="Image Description">
+            <div id="sentiment-analysis-form">
+                <h2>Sentiment Analysis</h2>
+                <form id="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                    <label for="comments-file">Upload Comments CSV file:</label>
+                    <input type="file" id="comments-file" name="comments-file" accept=".csv">
+                    <label for="videos-file">Upload Videos CSV file:</label>
+                    <input type="file" id="videos-file" name="videos-file" accept=".csv">
+                    <button type="submit">Analyze Sentiment</button>
+                </form>
+                {% if results %}
+                <h3>Sentiment Analysis Results</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Comment</th>
+                            <th>Sentiment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comment, sentiment in results %}
+                        <tr>
+                            <td>{{ comment }}</td>
+                            <td>{{ sentiment }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <h3>Sentiment Distribution</h3>
+                <img src="{{ url_for('static', filename='uploads/sentiment_distribution.png') }}" alt="Sentiment Distribution">
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 YouTube Comment Sentiment Analysis</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,51 @@
+comment_text,likes,replies,sentiment
+It's fine.,23,15,Neutral
+Moderate quality.,23,2,Neutral
+Bad service.,92,15,Negative
+Fantastic work!,16,9,Positive
+Would not recommend.,3,10,Negative
+This is the worst!,46,14,Negative
+Wonderful experience!,80,10,Positive
+Fantastic work!,36,8,Positive
+I hate this!,55,14,Negative
+Bad service.,62,6,Negative
+This is terrible!,68,3,Negative
+Very disappointed.,41,4,Negative
+Very unhappy with this.,65,0,Negative
+Bad service.,22,5,Negative
+I'm very happy with this.,5,16,Positive
+It's okay.,57,14,Neutral
+This is the best!,38,12,Positive
+Very disappointed.,21,2,Negative
+Fantastic work!,1,1,Positive
+I'm very happy with this.,94,4,Positive
+This is amazing!,85,15,Positive
+Would not recommend.,76,0,Negative
+Very disappointed.,53,11,Negative
+It's just okay.,43,0,Neutral
+This is terrible!,42,12,Negative
+"Not bad, not great.",54,12,Neutral
+This is the worst!,0,0,Negative
+I don't have strong feelings about this.,16,19,Neutral
+Very disappointed.,34,16,Negative
+"Not bad, not great.",65,7,Neutral
+Bad service.,100,20,Negative
+This is average.,33,17,Neutral
+I don't have strong feelings about this.,47,11,Neutral
+Great service!,77,16,Positive
+This is amazing!,12,17,Positive
+Acceptable performance.,45,17,Neutral
+Very satisfied!,30,7,Positive
+Highly recommend!,61,9,Positive
+This is the best!,94,19,Positive
+Great service!,53,8,Positive
+"Not bad, not great.",42,7,Neutral
+Not satisfied.,27,11,Negative
+Acceptable performance.,13,19,Neutral
+Highly recommend!,85,11,Positive
+Acceptable performance.,57,2,Neutral
+It's just okay.,48,5,Neutral
+This is amazing!,41,3,Positive
+I hate this!,52,7,Negative
+I love this product!,8,11,Positive
+This is average.,29,11,Neutral
